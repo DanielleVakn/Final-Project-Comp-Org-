@@ -37,5 +37,22 @@ unread_char();
 }
 // no sign, char may be a digit - put it back so the loop reads it again
 
+while ((c = read_char()) != EOF ) {
+  if ( c >= '0' && c <= '9') { 
+    value = value * 10 + ( c - '0'); 
+    digits read ++; 
+else{ 
+unread_char(c);
+break
+}
+if (digits_read == 0){ 
+  return 0;
+}
+
+*out = sign * value; 
+return 1; 
+
+
+
 
 
