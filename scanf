@@ -5,6 +5,14 @@ int read_char(void){
     int c = pushed_char;
     int pushed_char = -1;
     return c; 
-} 
+  } 
 return getchar(); 
 } 
+
+void unread_char(int c){ 
+  pushed_car = c;
+  } 
+
+void skip_whitespaces(void) 
+
+int my_scanf(
