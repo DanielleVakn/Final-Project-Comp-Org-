@@ -1,0 +1,10 @@
+#include <stdio.h>
+static int pushed_char = -1; 
+int read_char(void){ 
+  if (pushed_char != -1){ 
+    int c = pushed_char;
+    int pushed_char = -1;
+    return c; 
+} 
+return getchar(); 
+} 
