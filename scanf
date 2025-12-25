@@ -2,7 +2,6 @@
 #include <stdarg.h>
 
 static int pushed_char = -1;
-
 int read_char(void) {
     if (pushed_char != -1) {
         int c = pushed_char;
@@ -17,7 +16,6 @@ void unread_char(int c) {
 }
 
 //ignore whitespace
-
 void skip_whitespaces(void) {
     int c;
     while ((c = read_char()) != EOF) {
@@ -29,7 +27,6 @@ void skip_whitespaces(void) {
 }
 
 // %d reading a decimal integer
-
 int read_decimal(int *out) {
     int c;
     int sign = 1;
@@ -64,7 +61,7 @@ int read_decimal(int *out) {
     *out = sign * value;
     return 1;       // success
 }
-// %c
+// read a single char %c
 int read_char_specifier(char *out) {
     int c = read_char();
     if (c == EOF) return 0;  // fail
@@ -133,7 +130,6 @@ int read_hex(int *out) {
 int my_scanf(const char *fmt, ...) {
     va_list args;
     int assigned = 0;
-
     va_start(args, fmt);
 
     //deal with leading spaces
@@ -141,7 +137,6 @@ int my_scanf(const char *fmt, ...) {
         skip_whitespaces();
         fmt++;
     }
-
     if (*fmt == '%' && *(fmt + 1) == 'd') {
         int *ptr = va_arg(args, int *);
         if (read_decimal(ptr)) {
@@ -167,11 +162,20 @@ int my_scanf(const char *fmt, ...) {
 }
 
 //test
-
 int main(void) {
     int x;
     char ch;
     char str[100];  // buffer to store the string
+
+    // Test %x
+    int hex;
+    if (my_scanf("%x", &hex) == 1) {
+        printf("You entered a hex number: %X\n", hex); // print as hex
+        printf("Decimal value: %d\n", hex);
+    } else {
+        printf("Invalid hex input\n");
+    }
+
 
     // Test %d
     if (my_scanf("%d", &x) == 1) {
@@ -194,12 +198,7 @@ int main(void) {
         printf("Invalid string input\n");
     }
 
-    // Test %x
-    if (my_scanf("%x", str) == 1) {
-        printf("You entered a hex number: \"%x\"\n", str);
-    } else {
-        printf("Invalid hex input\n");
-    }
+
 
 
     return 0;
