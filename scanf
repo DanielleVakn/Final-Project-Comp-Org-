@@ -21,14 +21,14 @@ void unread_char(int c) {
 void skip_whitespaces(void) {
     int c;
     while ((c = read_char()) != EOF) {
-        if (c==' ' || c=='\t' || c=='\n' || c=='\r' || c=='\v' || c=='\f') {
+        if (!(c==' ' || c=='\t' || c=='\n' || c=='\r' || c=='\v' || c=='\f')) {
             unread_char(c);
             return;
         }
     }
 }
 
-// reading a decimal integer
+// %d reading a decimal integer
 
 int read_decimal(int *out) {
     int c;
@@ -72,11 +72,75 @@ int read_char_specifier(char *out) {
     return 1;                // success
 }
 
+// read a string %s
+int read_string(char *out) {
+    int c;
+    skip_whitespaces();  // skip leading spaces
+
+    int len = 0;
+    while ((c = read_char()) != EOF && c != ' ' && c != '\n' && c != '\t') {
+        out[len++] = c;
+    }
+    out[len] = '\0';
+    return len > 0;  // success if at least 1 char read
+}
+
+int read_hex(int *out) {
+    int c;
+    int sign = 1;
+    int value = 0;
+    int digits_read = 0;
+    int digit;
+
+    skip_whitespaces();
+
+    c = read_char();
+    if (c == '-') {
+        sign = -1;
+    } else if (c == '+') {
+        sign = 1;
+    } else {
+        unread_char(c);
+    }
+
+    while ((c = read_char()) != EOF) {
+        if (c >= '0' && c <= '9') {
+            digit = c - '0';
+        }
+        else if (c >= 'A' && c <= 'F') {
+            digit = c - 'A' + 10;
+        }
+        else if (c >= 'a' && c <= 'f') {
+            digit = c - 'a' + 10;
+        }
+        else {
+            unread_char(c);
+            break;
+        }
+
+        value = value * 16 + digit;
+        digits_read++;
+    }
+
+    if (digits_read == 0) {
+        return 0;
+    }
+
+    *out = sign * value;
+    return 1;
+}
+
 int my_scanf(const char *fmt, ...) {
     va_list args;
     int assigned = 0;
 
     va_start(args, fmt);
+
+    //deal with leading spaces
+    if (*fmt == ' ') {
+        skip_whitespaces();
+        fmt++;
+    }
 
     if (*fmt == '%' && *(fmt + 1) == 'd') {
         int *ptr = va_arg(args, int *);
@@ -90,7 +154,14 @@ int my_scanf(const char *fmt, ...) {
             assigned = 1;
         }
     }
-
+    else if (*fmt == '%' && *(fmt + 1) == 's') {
+        char *ptr = va_arg(args, char *);
+        if (read_string(ptr)) assigned = 1;
+    }
+    else if (*fmt == '%' && *(fmt + 1) == 'x') {
+        int *ptr = va_arg(args, int *);
+        if (read_hex(ptr)) assigned = 1;
+    }
     va_end(args);
     return assigned;
 }
@@ -100,17 +171,39 @@ int my_scanf(const char *fmt, ...) {
 int main(void) {
     int x;
     char ch;
+    char str[100];  // buffer to store the string
 
+    // Test %d
     if (my_scanf("%d", &x) == 1) {
-        printf("You entered: %d\n", x);
-    }
-    else if (my_scanf("%c", &ch) == 1) {
-        printf("You entered: %c\n", ch);
+        printf("You entered an integer: %d\n", x);
     } else {
-        printf("Invalid input\n");
+        printf("Invalid integer input\n");
     }
+
+    // Test %c
+    if (my_scanf("%c", &ch) == 1) {
+        printf("You entered a character: '%c'\n", ch);
+    } else {
+        printf("Invalid character input\n");
+    }
+
+    // Test %s
+    if (my_scanf("%s", str) == 1) {
+        printf("You entered a string: \"%s\"\n", str);
+    } else {
+        printf("Invalid string input\n");
+    }
+
+    // Test %x
+    if (my_scanf("%x", str) == 1) {
+        printf("You entered a hex number: \"%x\"\n", str);
+    } else {
+        printf("Invalid hex input\n");
+    }
+
 
     return 0;
 }
+
 
 
