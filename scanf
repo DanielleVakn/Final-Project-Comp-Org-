@@ -228,6 +228,19 @@ int read_binary(int *out) {
     return 1; //success
 }
 
+int read_line(char *out, int max_size) {
+    char c;
+    int index = 0;
+    while (EOF != (c = read_char()) && c != '\n') {
+        if (index < max_size - 1){
+            out[index] = c;
+            index++;
+        }
+    }
+    out[index] = '\0';
+    if (index == 0 && c == EOF) return 0;
+    return 1;
+}
 int my_scanf(const char *fmt, ...){
     va_list args;
     int assigned = 0;
@@ -269,12 +282,16 @@ int my_scanf(const char *fmt, ...){
             assigned = 1;
         }
     }
+    else if (*fmt == '%' && *(fmt + 1) == 'L') {
+        char *ptr = va_arg(args, char *);
+        int max_size = va_arg(args, int);
+        if (read_line(ptr, max_size)) {
+            assigned = 1;
+        }
+    }
     va_end(args);
     return assigned;
 }
-
-
-
 
     //test
     int main(void){
@@ -283,7 +300,14 @@ int my_scanf(const char *fmt, ...){
     char str[100];  // buffer to store the string
     float f;
     int b;
+    char line[100];
 
+    // test L line %L
+    if (my_scanf("%L", &line, 100) == 1) {
+        printf("you entered a line: %s\n", line);
+    } else {
+        printf("Invalid line input\n");
+    }
     // test binary %b
     if (my_scanf("%b", &x) == 1) {
         printf("Binary input as decimal: %d\n", x);
