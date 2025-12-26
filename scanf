@@ -241,6 +241,21 @@ int read_line(char *out, int max_size) {
     if (index == 0 && c == EOF) return 0;
     return 1;
 }
+
+int read_percentage(float *out) {
+    int c;
+    float temp_float;
+    if (read_float(&temp_float) != 1) return 0;
+    while ((c = read_char()) == ' ' || c == '\t') {
+        if (c != '%'){
+            if (c != EOF) unread_char(c);
+            return 0;
+        }
+    }
+    *out = temp_float / 100.0f;
+    return 1;
+
+}
 int my_scanf(const char *fmt, ...){
     va_list args;
     int assigned = 0;
@@ -289,6 +304,10 @@ int my_scanf(const char *fmt, ...){
             assigned = 1;
         }
     }
+    else if (*fmt == '%' && *(fmt + 1) == 'p') {
+        float *ptr = va_arg(args, float *);
+        if (read_percentage(ptr)) assigned = 1;
+    }
     va_end(args);
     return assigned;
 }
@@ -301,6 +320,14 @@ int my_scanf(const char *fmt, ...){
     float f;
     int b;
     char line[100];
+    float p;
+
+    //test percentage %p
+    if (my_scanf("%p", &p) == 1) {
+        printf("You entered a percentage: %f\n", p);
+    } else {
+        printf("Invalid percentage input\n");
+    }
 
     // test L line %L
     if (my_scanf("%L", &line, 100) == 1) {
