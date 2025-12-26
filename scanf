@@ -127,7 +127,108 @@ int read_hex(int *out) {
     return 1;
 }
 
-int my_scanf(const char *fmt, ...) {
+int read_float(float *out) {
+    int c;
+    int sign = 1;
+    float value = 0.0f;
+    int digits_read = 0;
+
+    skip_whitespaces();
+
+    c = read_char();
+    if (c == '-') sign = -1;
+    else if (c == '+') sign = 1;
+    else unread_char(c);
+
+    // integer part
+    while ((c = read_char()) != EOF && c >= '0' && c <= '9') {
+        value = value * 10.0f + (c - '0');
+        digits_read++;
+    }
+
+    // fractional part
+    if (c == '.') {
+        float fraction = 0.0f;
+        float factor = 0.1f;
+        int fraction_digits = 0;
+        while ((c = read_char()) != EOF && c >= '0' && c <= '9') {
+            fraction += (c - '0') * factor;
+            factor *= 0.1f;
+            digits_read++;
+            fraction_digits++;
+        }
+        value += fraction;
+
+
+        // if no digits after decimal, fail
+        if (fraction_digits == 0 && digits_read == 0) {
+            if (c != EOF) unread_char(c);
+            return 0;
+
+        }
+    }
+
+    if (c == 'e' || c == 'E') {
+        int exponent_sign = 1;
+        int exponent_digits = 0;
+        int exponent_value = 0;
+
+        c = read_char();
+        if (c == '-') exponent_sign = -1;
+        else if (c == '+') exponent_sign = 1;
+        else unread_char(c);
+
+        while ((c = read_char()) != EOF && c >= '0' && c <= '9') {
+            exponent_value = exponent_value * 10 + (c - '0');
+            exponent_digits++;
+        }
+        if (exponent_digits == 0) {
+            if (c != EOF) unread_char(c);
+            return 0;
+        }
+        if (c != EOF) unread_char(c);
+
+        // apply exponent
+        float factor = 1.0f;
+        for (int i = 0; i < exponent_value; i++) factor *= 10.0f;
+        if (exponent_sign == 1) value *= factor;
+        else value /= factor;
+    }
+
+        *out = sign * value;
+        return 1;
+}
+
+//--------------------------------------------------//
+//new custom modifiers//
+//read binary number %b //
+
+int read_binary(int *out) {
+    int c;
+    int sign = 1;
+    int value = 0;
+    int digits_read = 0;
+    skip_whitespaces();
+
+    c = read_char();
+    if (c == '-') sign = -1;
+    else if (c == '+') sign = 1;
+    else unread_char(c);
+    while ((c = read_char()) != EOF) {
+        if ( c == '0' || c == '1') {
+            value = value * 2 + (c - '0');
+            digits_read++;
+        }else {
+            unread_char(c);
+            break;
+        }
+    }
+    if (digits_read == 0) return 0;
+    *out = sign * value;
+    return 1; //success
+}
+
+int my_scanf(const char *fmt, ...){
     va_list args;
     int assigned = 0;
     va_start(args, fmt);
@@ -157,15 +258,45 @@ int my_scanf(const char *fmt, ...) {
         int *ptr = va_arg(args, int *);
         if (read_hex(ptr)) assigned = 1;
     }
+    else if (*fmt == '%' && *(fmt + 1) == 'f') {
+        float *ptr = va_arg(args, float *);
+        if (read_float(ptr)) assigned = 1;
+    }
+
+    else if (*fmt == '%' && *(fmt + 1) == 'b') {
+        int *ptr = va_arg(args, int *);
+        if (read_binary(ptr)) {
+            assigned = 1;
+        }
+    }
     va_end(args);
     return assigned;
 }
 
-//test
-int main(void) {
+
+
+
+    //test
+    int main(void){
     int x;
     char ch;
     char str[100];  // buffer to store the string
+    float f;
+    int b;
+
+    // test binary %b
+    if (my_scanf("%b", &x) == 1) {
+        printf("Binary input as decimal: %d\n", x);
+    } else {
+        printf("Invalid binary input\n");
+    }
+
+    //test float %f
+    if (my_scanf("%f", &f) == 1) {
+        printf("You entered a float: %f\n", f);
+    } else {
+        printf("Invalid float input\n");
+    }
 
     // Test %x
     int hex;
@@ -175,7 +306,6 @@ int main(void) {
     } else {
         printf("Invalid hex input\n");
     }
-
 
     // Test %d
     if (my_scanf("%d", &x) == 1) {
@@ -199,10 +329,9 @@ int main(void) {
     }
 
 
-
-
     return 0;
 }
+
 
 
 
