@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include <assert.h>
+#include <math.h>
+
 
 static int pushed_char = -1;
 int read_char(void) {
@@ -72,10 +76,8 @@ int read_char_specifier(char *out) {
 // read a string %s
 int read_string(char *out) {
     int c;
-    skip_whitespaces();  // skip leading spaces
-
     int len = 0;
-    while ((c = read_char()) != EOF && c != ' ' && c != '\n' && c != '\t') {
+    while ((c = read_char()) != EOF && c != '\0' && c != ' ' && c != '\n' && c != '\t') {
         out[len++] = c;
     }
     out[len] = '\0';
@@ -195,8 +197,10 @@ int read_float(float *out) {
         else value /= factor;
     }
 
-        *out = sign * value;
-        return 1;
+    if (digits_read == 0) return 0;
+    *out = sign * value;
+    if (c != EOF) unread_char(c);
+    return 1;
 }
 
 //--------------------------------------------------//
@@ -243,30 +247,26 @@ int read_line(char *out, int max_size) {
 }
 
 int read_percentage(float *out) {
-    int c;
     float temp_float;
-    if (read_float(&temp_float) != 1) return 0;
-    while ((c = read_char()) == ' ' || c == '\t') {
-        if (c != '%'){
-            if (c != EOF) unread_char(c);
-            return 0;
-        }
+    int c;
+    if (!read_float(&temp_float)) return 0;
+    while ((c = read_char()) == ' ' || c == '\t');
+    // c must be '%'
+    if (c != '%') {
+        if (c != EOF) unread_char(c);
+        return 0;
     }
     *out = temp_float / 100.0f;
     return 1;
-
 }
+
 int my_scanf(const char *fmt, ...){
     va_list args;
     int assigned = 0;
     va_start(args, fmt);
 
-    //deal with leading spaces
-    if (*fmt == ' ') {
-        skip_whitespaces();
-        fmt++;
-    }
     if (*fmt == '%' && *(fmt + 1) == 'd') {
+        skip_whitespaces();
         int *ptr = va_arg(args, int *);
         if (read_decimal(ptr)) {
             assigned = 1;
@@ -279,19 +279,23 @@ int my_scanf(const char *fmt, ...){
         }
     }
     else if (*fmt == '%' && *(fmt + 1) == 's') {
+        skip_whitespaces();
         char *ptr = va_arg(args, char *);
         if (read_string(ptr)) assigned = 1;
     }
     else if (*fmt == '%' && *(fmt + 1) == 'x') {
+        skip_whitespaces();
         int *ptr = va_arg(args, int *);
         if (read_hex(ptr)) assigned = 1;
     }
     else if (*fmt == '%' && *(fmt + 1) == 'f') {
+        skip_whitespaces();
         float *ptr = va_arg(args, float *);
         if (read_float(ptr)) assigned = 1;
     }
 
     else if (*fmt == '%' && *(fmt + 1) == 'b') {
+        skip_whitespaces();
         int *ptr = va_arg(args, int *);
         if (read_binary(ptr)) {
             assigned = 1;
@@ -305,6 +309,7 @@ int my_scanf(const char *fmt, ...){
         }
     }
     else if (*fmt == '%' && *(fmt + 1) == 'p') {
+        skip_whitespaces();
         float *ptr = va_arg(args, float *);
         if (read_percentage(ptr)) assigned = 1;
     }
@@ -312,77 +317,335 @@ int my_scanf(const char *fmt, ...){
     return assigned;
 }
 
-    //test
-    int main(void){
+// --------------------Tests -------------------- //
+#define FLOAT_EPSILON 0.0001f
+#define ASSERT_FLOAT_EQ(actual, expected) \
+    assert(fabsf((actual) - (expected)) < FLOAT_EPSILON)
+
+FILE *redirect_stdin(const char *input) {
+    size_t len = strlen(input);
+    pushed_char = -1;
+    FILE *f = fmemopen((void *)input, len+1, "r");
+    assert(f != NULL);
+    stdin = f;
+    return f;
+}
+
+void restore_stdin(FILE *f) {
+    fclose(f);
+}
+
+void test_decimal(void) {
     int x;
+    FILE *f;
+
+    f = redirect_stdin("42");
+    assert(my_scanf("%d", &x));
+    assert(x == 42);
+    restore_stdin(f);
+
+    f = redirect_stdin("-123");
+    assert(my_scanf("%d", &x));
+    assert(x == -123);
+    restore_stdin(f);
+
+    f = redirect_stdin("   77");
+    assert(my_scanf("%d", &x));
+    assert(x == 77);
+    restore_stdin(f);
+
+    printf("PASS: decimal tests\n");
+}
+
+void test_char(void) {
     char ch;
-    char str[100];  // buffer to store the string
-    float f;
+    FILE *f;
+
+    f = redirect_stdin("A");
+    assert(my_scanf("%c", &ch));
+    assert(ch == 'A');
+    restore_stdin(f);
+
+    printf("PASS: char tests\n");
+}
+
+void test_string(void) {
+    char str[100];
+    FILE *f;
+
+    f = redirect_stdin("hello");
+    assert(my_scanf("%s", str));
+    assert(strcmp(str, "hello") == 0);
+    restore_stdin(f);
+
+    f = redirect_stdin("   world");
+    assert(my_scanf("%s", str));
+    assert(strcmp(str, "world") == 0);
+    restore_stdin(f);
+
+    printf("PASS: string tests\n");
+}
+
+void test_binary(void) {
     int b;
-    char line[100];
+    FILE *f;
+
+    f = redirect_stdin("1011");
+    assert(my_scanf("%b", &b));
+    assert(b == 11);
+    restore_stdin(f);
+
+    f = redirect_stdin("000101");
+    assert(my_scanf("%b", &b));
+    assert(b == 5);
+    restore_stdin(f);
+
+    printf("PASS: binary tests\n");
+}
+
+void test_hex(void) {
+    int x;
+    FILE *f;
+
+    f = redirect_stdin("1A3f");
+    assert(my_scanf("%x", &x));
+    assert(x == 0x1A3F);
+    restore_stdin(f);
+
+    f = redirect_stdin("-FF");
+    assert(my_scanf("%x", &x));
+    assert(x == -255);
+    restore_stdin(f);
+
+    printf("PASS: hex tests\n");
+}
+
+void test_float(void) {
+    float fval;
+    FILE *f;
+
+    f = redirect_stdin("3.1415");
+    assert(my_scanf("%f", &fval));
+    ASSERT_FLOAT_EQ(fval, 3.1415f);
+    restore_stdin(f);
+
+    f = redirect_stdin("-1.5");
+    assert(my_scanf("%f", &fval));
+    ASSERT_FLOAT_EQ(fval, -1.5f);
+    restore_stdin(f);
+
+    f = redirect_stdin("2.5e3");
+    assert(my_scanf("%f", &fval));
+    ASSERT_FLOAT_EQ(fval, 2500.0f);
+    restore_stdin(f);
+
+    printf("PASS: float tests\n");
+}
+
+void test_percentage(void) {
     float p;
+    FILE *f;
 
-    //test percentage %p
-    if (my_scanf("%p", &p) == 1) {
-        printf("You entered a percentage: %f\n", p);
-    } else {
-        printf("Invalid percentage input\n");
-    }
+    f = redirect_stdin("50%");
+    assert(my_scanf("%p", &p));
+    ASSERT_FLOAT_EQ(p, 0.5f);
+    restore_stdin(f);
 
-    // test L line %L
-    if (my_scanf("%L", &line, 100) == 1) {
-        printf("you entered a line: %s\n", line);
-    } else {
-        printf("Invalid line input\n");
-    }
-    // test binary %b
-    if (my_scanf("%b", &x) == 1) {
-        printf("Binary input as decimal: %d\n", x);
-    } else {
-        printf("Invalid binary input\n");
-    }
+    f = redirect_stdin("12.5%");
+    assert(my_scanf("%p", &p));
+    ASSERT_FLOAT_EQ(p, 0.125f);
+    restore_stdin(f);
 
-    //test float %f
-    if (my_scanf("%f", &f) == 1) {
-        printf("You entered a float: %f\n", f);
-    } else {
-        printf("Invalid float input\n");
-    }
+    printf("PASS: percentage tests\n");
+}
 
-    // Test %x
-    int hex;
-    if (my_scanf("%x", &hex) == 1) {
-        printf("You entered a hex number: %X\n", hex); // print as hex
-        printf("Decimal value: %d\n", hex);
-    } else {
-        printf("Invalid hex input\n");
-    }
+void test_line(void) {
+    char line[100];
+    FILE *f;
 
-    // Test %d
-    if (my_scanf("%d", &x) == 1) {
-        printf("You entered an integer: %d\n", x);
-    } else {
-        printf("Invalid integer input\n");
-    }
+    f = redirect_stdin("This is a full line\n");
+    assert(my_scanf("%L", line, 100));
+    assert(strcmp(line, "This is a full line") == 0);
+    restore_stdin(f);
 
-    // Test %c
-    if (my_scanf("%c", &ch) == 1) {
-        printf("You entered a character: '%c'\n", ch);
-    } else {
-        printf("Invalid character input\n");
-    }
+    f = redirect_stdin("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    assert(my_scanf("%L", line, 10));
+    assert(strlen(line) == 9);
+    assert(strncmp(line, "ABCDEFGHI", 9) == 0);
+    restore_stdin(f);
 
-    // Test %s
-    if (my_scanf("%s", str) == 1) {
-        printf("You entered a string: \"%s\"\n", str);
-    } else {
-        printf("Invalid string input\n");
-    }
+    printf("PASS: line tests\n");
+}
+
+void test_decimal_edges(void) {
+    int x;
+    FILE *f;
+
+    f = redirect_stdin("+");
+    assert(!my_scanf("%d", &x));
+    restore_stdin(f);
+
+    f = redirect_stdin("-");
+    assert(!my_scanf("%d", &x));
+    restore_stdin(f);
+
+    f = redirect_stdin("000");
+    assert(my_scanf("%d", &x) && x == 0);
+    restore_stdin(f);
+
+    f = redirect_stdin("12abc");
+    assert(my_scanf("%d", &x) && x == 12);
+    restore_stdin(f);
+
+    f = redirect_stdin("abc");
+    assert(!my_scanf("%d", &x));
+    restore_stdin(f);
+
+    printf("PASS: decimal edge cases\n");
+}
+
+void test_string_edges(void) {
+    char s[10];
+    FILE *f;
+
+    f = redirect_stdin("");
+    assert(!my_scanf("%s", s));
+    restore_stdin(f);
+
+    f = redirect_stdin("   ");
+    assert(!my_scanf("%s", s));
+    restore_stdin(f);
+
+    f = redirect_stdin("hello world");
+    assert(my_scanf("%s", s));
+    assert(strcmp(s, "hello") == 0);
+    restore_stdin(f);
+
+    printf("PASS: string edge cases\n");
+}
+void test_float_edges(void) {
+    float f;
+    FILE *in;
+
+    in = redirect_stdin(".");
+    assert(!my_scanf("%f", &f));
+    restore_stdin(in);
+
+    in = redirect_stdin("1.");
+    assert(my_scanf("%f", &f));
+    ASSERT_FLOAT_EQ(f, 1.0f);
+    restore_stdin(in);
+
+    in = redirect_stdin(".5");
+    assert(my_scanf("%f", &f));
+    ASSERT_FLOAT_EQ(f, 0.5f);
+    restore_stdin(in);
+
+    in = redirect_stdin("1e");
+    assert(!my_scanf("%f", &f));
+    restore_stdin(in);
+
+    in = redirect_stdin("1e-3");
+    assert(my_scanf("%f", &f));
+    ASSERT_FLOAT_EQ(f, 0.001f);
+    restore_stdin(in);
+
+    printf("PASS: float edge cases\n");
+}
+
+void test_binary_edges(void) {
+    int b;
+    FILE *f;
+
+    f = redirect_stdin("2");
+    assert(!my_scanf("%b", &b));
+    restore_stdin(f);
+
+    f = redirect_stdin("10102");
+    assert(my_scanf("%b", &b));
+    assert(b == 10); // 1010
+    restore_stdin(f);
+
+    f = redirect_stdin("-");
+    assert(!my_scanf("%b", &b));
+    restore_stdin(f);
+
+    printf("PASS: binary edge cases\n");
+}
+void test_line_edges(void) {
+    char buf[5];
+    FILE *f;
+
+    f = redirect_stdin("\n");
+    assert(my_scanf("%L", buf, 5));
+    assert(strcmp(buf, "") == 0);
+    restore_stdin(f);
+
+    f = redirect_stdin("abc");
+    assert(my_scanf("%L", buf, 5));
+    assert(strcmp(buf, "abc") == 0);
+    restore_stdin(f);
+
+    f = redirect_stdin("abcdef");
+    assert(my_scanf("%L", buf, 5));
+    assert(strcmp(buf, "abcd") == 0);
+    restore_stdin(f);
+
+    printf("PASS: line edge cases\n");
+}
+
+void test_percentage_edges(void) {
+    float p;
+    FILE *f;
+
+    // missing % sign
+    f = redirect_stdin("50");
+    assert(!my_scanf("%p", &p));
+    restore_stdin(f);
+
+    // spaces before %
+    f = redirect_stdin("12.5   %");
+    assert(my_scanf("%p", &p));
+    ASSERT_FLOAT_EQ(p, 0.125f);
+    restore_stdin(f);
+
+    // invalid character after number
+    f = redirect_stdin("30x%");
+    assert(!my_scanf("%p", &p));
+    restore_stdin(f);
+
+    // negative percentage
+    f = redirect_stdin("-20%");
+    assert(my_scanf("%p", &p));
+    ASSERT_FLOAT_EQ(p, -0.2f);
+    restore_stdin(f);
+
+    // only % without number
+    f = redirect_stdin("%");
+    assert(!my_scanf("%p", &p));
+    restore_stdin(f);
 
 
-    return 0;
+    printf("PASS: percentage edge cases\n");
 }
 
 
+int main(void) {
+    test_decimal();
+    test_char();
+    test_string();
+    test_binary();
+    test_hex();
+    test_float();
+    test_percentage();
+    test_line();
+    test_decimal_edges();
+    test_string_edges();
+    test_float_edges();
+    test_line_edges();
+    test_percentage_edges();
 
 
+    printf("ALL TESTS PASSED \n");
+    return 0;
+}
